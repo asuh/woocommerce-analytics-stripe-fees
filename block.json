@@ -1,0 +1,12 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "extension/woocommerce-analytics-stripe-fees",
+	"version": "0.1.0",
+	"title": "Woocommerce Analytics Stripe Fees",
+	"category": "widgets",
+	"textdomain": "woocommerce-analytics-stripe-fees",
+	"editorScript": "file:./build/index.js",
+	"editorStyle": "file:./build/index.css",
+	"style": "file:./build/style-index.css"
+}
