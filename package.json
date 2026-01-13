@@ -4,6 +4,19 @@
 	"author": "Asuh",
 	"license": "GPL-3.0+",
 	"main": "build/index.js",
+	"files": [
+		"block.json",
+		"build",
+		"includes",
+		"languages",
+		"vendor/autoload_packages.php",
+		"vendor/autoload.php",
+		"vendor/automattic",
+		"vendor/composer",
+		"vendor/jetpack-autoloader",
+		"woocommerce-analytics-stripe-fees.php",
+		"README.md"
+	],
 	"scripts": {
 		"build": "wp-scripts build",
 		"format": "wp-scripts format",

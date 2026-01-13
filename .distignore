@@ -1,0 +1,69 @@
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea
+.vscode
+.vscode/*
+project.xml
+project.properties
+.project
+.settings*
+*.sublime-project
+*.sublime-workspace
+.sublimelinterrc
+
+# Sass
+.sass-cache/
+
+# Logs
+logs/
+yarn-error.log
+npm-debug.log
+.pnpm-debug.log
+
+# Build files
+*.sql
+*.swp
+
+# Built packages (don't include in zip, but build/ is needed)
+build-module/
+build-style/
+build-types/
+dist/
+
+# Project files - exclude for distribution
+node_modules/
+
+# TypeScript files
+tsconfig.tsbuildinfo
+
+# Development files
+.git
+.gitignore
+.editorconfig
+.eslintrc.js
+.prettierrc.json
+.wp-env.json
+composer.lock
+package-lock.json
+webpack.config.js
+
+# Test files
+tests/
+phpunit.xml
+phpunit.xml.dist
+
+# Source files (only needed for development)
+src/
+
+# Exclude dev dependencies from vendor
+vendor/bin/
+vendor/phpunit/
+vendor/sebastian/
+vendor/doctrine/
+vendor/myclabs/
+vendor/nikic/
+vendor/phar-io/
+vendor/theseer/

@@ -22,6 +22,18 @@ npm run build
 npm start
 ```
 
+### Building for Production
+
+To create a distributable zip file for production use:
+
+```
+npm run plugin-zip
+```
+
+This will generate a `woocommerce-analytics-stripe-fees.zip` file in the plugin directory, ready for installation on any WordPress site via **Plugins > Add New > Upload Plugin**.
+
+The zip file includes only the necessary files for production (built assets, PHP files, etc.) and excludes development files like `node_modules`, source files, and configuration files.
+
 ## References
 
 * Updated the code after studying a Stackoverflow question: [try to add order item name column in woocommerce Analytics -> Orders report table (and output to csv file)](https://stackoverflow.com/questions/69560032/try-to-add-order-item-name-column-in-woocommerce-analytics-orders-report-tabl)
