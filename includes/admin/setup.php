@@ -13,7 +13,7 @@ class Setup {
 	 */
 	public function __construct() {
 		add_action( 'admin_enqueue_scripts', array( $this, 'register_scripts' ) );
-		add_action( 'woocommerce_analytics_report_menu_items', array( $this, 'register_page' ) );
+		add_action( 'admin_menu', array( $this, 'register_page' ) );
 	}
 
 	/**
@@ -63,15 +63,18 @@ class Setup {
 	 *
 	 * @since 1.0.0
 	 */
-	public function register_page( $menu_items ) {
+	public function register_page() {
+		if ( ! function_exists( 'wc_admin_register_page' ) ) {
+			return;
+		}
 
-		$menu_items[] = array(
-			'id'     => 'woocommerce-analytics-stripe-fee',
-			'title'  => __( 'Stripe Fee', 'woocommerce-analytics-stripe-fee' ),
-			'parent' => 'woocommerce-analytics',
-			'path'   => '/analytics/woocommerce-analytics-stripe-fee',
+		wc_admin_register_page(
+			array(
+				'id'       => 'woocommerce-analytics-stripe-fee',
+				'title'    => __( 'Stripe Fees', 'woocommerce-analytics-stripe-fees' ),
+				'parent'   => 'woocommerce-analytics',
+				'path'     => '/analytics/woocommerce-analytics-stripe-fee',
+			)
 		);
-
-		return $menu_items;
 	}
 }
