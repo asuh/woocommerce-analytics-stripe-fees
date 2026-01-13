@@ -13,27 +13,38 @@ import { __ } from "@wordpress/i18n";
  */
 import "./index.scss";
 
+/**
+ * Add Stripe Fee column to the Orders report table.
+ *
+ * @param {Object} reportTableData - Table data object containing headers, rows, and items.
+ * @return {Object} Modified table data with Stripe Fee column added.
+ */
 const addTableColumn = (reportTableData) => {
 	if ("orders" !== reportTableData.endpoint) {
 		return reportTableData;
 	}
 
+	// Add the Stripe Fee header
 	const newHeaders = [
 		...reportTableData.headers,
 		{
-			label: "Stripe Fee",
+			label: __("Stripe Fee", "woocommerce-analytics-stripe-fees"),
 			key: "stripe_fee",
 			required: false,
+			isSortable: false,
+			isNumeric: true,
 		},
 	];
 
+	// Add the Stripe Fee data to each row
 	const newRows = reportTableData.rows.map((row, index) => {
 		const item = reportTableData.items.data[index];
+		const stripeFee = item?.stripe_fee ?? "";
 		const newRow = [
 			...row,
 			{
-				display: item.stripe_fee,
-				value: item.stripe_fee,
+				display: stripeFee ? `$${stripeFee}` : "-",
+				value: stripeFee || 0,
 			},
 		];
 		return newRow;
@@ -47,7 +58,7 @@ const addTableColumn = (reportTableData) => {
 
 addFilter(
 	"woocommerce_admin_report_table",
-	"wg-woocommerce-addon",
+	"woocommerce-analytics-stripe-fees",
 	addTableColumn,
 );
 
