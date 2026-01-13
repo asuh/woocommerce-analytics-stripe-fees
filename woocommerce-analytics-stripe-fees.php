@@ -187,7 +187,6 @@ add_filter('woocommerce_analytics_revenue_select_query', function ($results, $ar
         return $results;
     }
 
-    global $wpdb;
     $total_stripe_fees = 0;
 
     // Get stripe fees for each interval
@@ -201,21 +200,29 @@ add_filter('woocommerce_analytics_revenue_select_query', function ($results, $ar
         }
 
         // Query orders in this interval and sum their stripe fees
-        // Using HPOS-compatible query that works with both legacy and new order tables
-        $stripe_fee_total = $wpdb->get_var($wpdb->prepare(
-            "SELECT SUM(CAST(pm.meta_value AS DECIMAL(10,2)))
-             FROM {$wpdb->postmeta} pm
-             INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-             WHERE pm.meta_key = '_stripe_fee'
-             AND p.post_type IN ('shop_order', 'shop_order_placehold')
-             AND p.post_status IN ('wc-completed', 'wc-processing', 'wc-on-hold')
-             AND p.post_date >= %s
-             AND p.post_date < %s",
-            $start_date,
-            $end_date
-        ));
+        // Using WooCommerce CRUD for HPOS compatibility
+        $order_args = array(
+            'limit'        => -1,
+            'status'       => array( 'wc-completed', 'wc-processing', 'wc-on-hold' ),
+            'date_created' => $start_date . '...' . $end_date,
+            'return'       => 'ids',
+        );
 
-        $fee = (float) ($stripe_fee_total ?? 0);
+        $order_ids = wc_get_orders( $order_args );
+        $fee = 0;
+
+        if ( ! empty( $order_ids ) ) {
+            foreach ( $order_ids as $order_id ) {
+                $order = wc_get_order( $order_id );
+                if ( $order ) {
+                    $stripe_fee = $order->get_meta( '_stripe_fee', true );
+                    if ( $stripe_fee ) {
+                        $fee += (float) $stripe_fee;
+                    }
+                }
+            }
+        }
+
         $total_stripe_fees += $fee;
 
         // Handle both array and object subtotals
