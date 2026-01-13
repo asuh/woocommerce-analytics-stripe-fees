@@ -9,11 +9,6 @@ import { addFilter } from "@wordpress/hooks";
 import { __ } from "@wordpress/i18n";
 
 /**
- * Internal dependencies
- */
-import "./index.scss";
-
-/**
  * Add Stripe Fee column to the Orders report table.
  *
  * @param {Object} reportTableData - Table data object containing headers, rows, and items.

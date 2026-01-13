@@ -4,6 +4,8 @@
  * Description: Adds Stripe fee analytics to WooCommerce Analytics reports
  * Version: 1.0.0
  * Requires PHP: 8.3
+ * Requires at least: 6.9
+ * WC requires at least: 10.4
  * Author: Asuh
  * Author URI: https://asuh.com
  * Text Domain: woocommerce-analytics-stripe-fees
