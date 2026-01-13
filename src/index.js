@@ -24,7 +24,12 @@ const addTableColumn = (reportTableData) => {
 		return reportTableData;
 	}
 
-	// Add the Stripe Fee header
+	// Find the net_total header index to calculate net after fees
+	const netTotalIndex = reportTableData.headers.findIndex(
+		(h) => h.key === "net_total"
+	);
+
+	// Add the Stripe Fee and Net After Fees headers
 	const newHeaders = [
 		...reportTableData.headers,
 		{
@@ -34,17 +39,34 @@ const addTableColumn = (reportTableData) => {
 			isSortable: false,
 			isNumeric: true,
 		},
+		{
+			label: __("Net After Fees", "woocommerce-analytics-stripe-fees"),
+			key: "net_after_fees",
+			required: false,
+			isSortable: false,
+			isNumeric: true,
+		},
 	];
 
-	// Add the Stripe Fee data to each row
+	// Add the Stripe Fee and Net After Fees data to each row
 	const newRows = reportTableData.rows.map((row, index) => {
 		const item = reportTableData.items.data[index];
-		const stripeFee = item?.stripe_fee ?? "";
+		const stripeFee = item?.stripe_fee ? parseFloat(item.stripe_fee) : 0;
+		const netTotal =
+			netTotalIndex >= 0 && row[netTotalIndex]
+				? parseFloat(row[netTotalIndex].value) || 0
+				: 0;
+		const netAfterFees = netTotal - stripeFee;
+
 		const newRow = [
 			...row,
 			{
-				display: stripeFee ? `$${stripeFee}` : "-",
-				value: stripeFee || 0,
+				display: stripeFee ? `$${stripeFee.toFixed(2)}` : "-",
+				value: stripeFee,
+			},
+			{
+				display: netAfterFees ? `$${netAfterFees.toFixed(2)}` : "-",
+				value: netAfterFees,
 			},
 		];
 		return newRow;
@@ -92,14 +114,19 @@ addFilter(
  * Add Stripe Fee column to the Revenue report table.
  *
  * @param {Object} reportTableData - Table data object.
- * @return {Object} Modified table data with Stripe Fee column.
+ * @return {Object} Modified table data with Stripe Fee and Net After Fees columns.
  */
 const addRevenueTableColumn = (reportTableData) => {
 	if ("revenue" !== reportTableData.endpoint) {
 		return reportTableData;
 	}
 
-	// Add the Stripe Fee header
+	// Find the net_revenue header index to calculate net after fees
+	const netRevenueIndex = reportTableData.headers.findIndex(
+		(h) => h.key === "net_revenue"
+	);
+
+	// Add the Stripe Fee and Net After Fees headers
 	const newHeaders = [
 		...reportTableData.headers,
 		{
@@ -109,17 +136,34 @@ const addRevenueTableColumn = (reportTableData) => {
 			isSortable: true,
 			isNumeric: true,
 		},
+		{
+			label: __("Net After Fees", "woocommerce-analytics-stripe-fees"),
+			key: "net_after_fees",
+			required: false,
+			isSortable: false,
+			isNumeric: true,
+		},
 	];
 
-	// Add the Stripe Fee data to each row
+	// Add the Stripe Fee and Net After Fees data to each row
 	const newRows = reportTableData.rows.map((row, index) => {
 		const item = reportTableData.items.data[index];
 		const stripeFee = item?.subtotals?.stripe_fee ?? 0;
+		const netRevenue =
+			netRevenueIndex >= 0 && row[netRevenueIndex]
+				? parseFloat(row[netRevenueIndex].value) || 0
+				: 0;
+		const netAfterFees = netRevenue - stripeFee;
+
 		const newRow = [
 			...row,
 			{
 				display: stripeFee ? `$${stripeFee.toFixed(2)}` : "-",
 				value: stripeFee,
+			},
+			{
+				display: netAfterFees ? `$${netAfterFees.toFixed(2)}` : "-",
+				value: netAfterFees,
 			},
 		];
 		return newRow;
@@ -195,6 +239,33 @@ const MyExamplePage = () => (
 			/>
 		</Woo.Section>
 	</Fragment>
+);
+
+/**
+ * Add Stripe Fees chart option to the Analytics Dashboard.
+ *
+ * @param {Array} charts - Array of dashboard chart configurations.
+ * @return {Array} Modified charts array with Stripe Fees option.
+ */
+const addDashboardStripeFeeChart = (charts) => {
+	return [
+		...charts,
+		{
+			key: "stripe_fee",
+			label: __("Stripe Fees", "woocommerce-analytics-stripe-fees"),
+			order: "desc",
+			orderby: "stripe_fee",
+			type: "currency",
+			endpoint: "revenue",
+			isReverseTrend: true, // Lower fees are better
+		},
+	];
+};
+
+addFilter(
+	"woocommerce_admin_dashboard_charts_filter",
+	"woocommerce-analytics-stripe-fees-dashboard",
+	addDashboardStripeFeeChart,
 );
 
 addFilter(
