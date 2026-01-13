@@ -1,7 +1,9 @@
 <?php
 /**
  * Plugin Name: Woocommerce Analytics Stripe Fees
- * Version: 0.5.0
+ * Description: Adds Stripe fee analytics to WooCommerce Analytics reports
+ * Version: 1.0.0
+ * Requires PHP: 8.4
  * Author: Asuh
  * Author URI: https://asuh.com
  * Text Domain: woocommerce-analytics-stripe-fees
