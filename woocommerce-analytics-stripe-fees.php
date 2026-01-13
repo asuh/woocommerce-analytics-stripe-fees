@@ -160,3 +160,118 @@ add_filter('woocommerce_report_orders_prepare_export_item', function ($export_it
     $export_item['stripe_fee'] = $item['stripe_fee'];
     return $export_item;
 }, 10, 2);
+
+/**
+ * Add stripe fee totals to the Revenue report data.
+ * This aggregates stripe fees for each interval (day/week/month/quarter/year).
+ *
+ * @param object $results The revenue report results.
+ * @param array  $args    Query arguments.
+ * @return object Modified results with stripe_fee data.
+ */
+add_filter('woocommerce_analytics_revenue_select_query', function ($results, $args) {
+    // Safety check - ensure we have valid results
+    if (!$results || is_wp_error($results)) {
+        return $results;
+    }
+
+    // Check if intervals exist (could be array or property)
+    $intervals = null;
+    if (isset($results->intervals)) {
+        $intervals = &$results->intervals;
+    } elseif (isset($results->data->intervals)) {
+        $intervals = &$results->data->intervals;
+    }
+
+    if (empty($intervals) || !is_array($intervals)) {
+        return $results;
+    }
+
+    global $wpdb;
+    $total_stripe_fees = 0;
+
+    // Get stripe fees for each interval
+    foreach ($intervals as $key => &$interval) {
+        // Get date range - handle both array and object formats
+        $start_date = is_array($interval) ? ($interval['date_start'] ?? null) : ($interval->date_start ?? null);
+        $end_date = is_array($interval) ? ($interval['date_end'] ?? null) : ($interval->date_end ?? null);
+
+        if (!$start_date || !$end_date) {
+            continue;
+        }
+
+        // Query orders in this interval and sum their stripe fees
+        // Using HPOS-compatible query that works with both legacy and new order tables
+        $stripe_fee_total = $wpdb->get_var($wpdb->prepare(
+            "SELECT SUM(CAST(pm.meta_value AS DECIMAL(10,2)))
+             FROM {$wpdb->postmeta} pm
+             INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+             WHERE pm.meta_key = '_stripe_fee'
+             AND p.post_type IN ('shop_order', 'shop_order_placehold')
+             AND p.post_status IN ('wc-completed', 'wc-processing', 'wc-on-hold')
+             AND p.post_date >= %s
+             AND p.post_date < %s",
+            $start_date,
+            $end_date
+        ));
+
+        $fee = (float) ($stripe_fee_total ?? 0);
+        $total_stripe_fees += $fee;
+
+        // Handle both array and object subtotals
+        if (is_array($interval)) {
+            if (!isset($intervals[$key]['subtotals'])) {
+                $intervals[$key]['subtotals'] = array();
+            }
+            if (is_array($intervals[$key]['subtotals'])) {
+                $intervals[$key]['subtotals']['stripe_fee'] = $fee;
+            } elseif (is_object($intervals[$key]['subtotals'])) {
+                $intervals[$key]['subtotals']->stripe_fee = $fee;
+            }
+        } elseif (is_object($interval)) {
+            if (!isset($interval->subtotals)) {
+                $interval->subtotals = new stdClass();
+            }
+            if (is_object($interval->subtotals)) {
+                $interval->subtotals->stripe_fee = $fee;
+            } elseif (is_array($interval->subtotals)) {
+                $interval->subtotals['stripe_fee'] = $fee;
+            }
+        }
+    }
+    unset($interval); // Break reference
+
+    // Also add to totals
+    if (isset($results->totals)) {
+        if (is_object($results->totals)) {
+            $results->totals->stripe_fee = $total_stripe_fees;
+        } elseif (is_array($results->totals)) {
+            $results->totals['stripe_fee'] = $total_stripe_fees;
+        }
+    }
+
+    return $results;
+}, 10, 2);
+
+/**
+ * Add stripe fee column to the Revenue report CSV export.
+ *
+ * @param array $export_columns Existing export columns.
+ * @return array Modified export columns.
+ */
+add_filter('woocommerce_report_revenue_export_columns', function ($export_columns) {
+    $export_columns['stripe_fee'] = __('Stripe Fees', 'woocommerce-analytics-stripe-fees');
+    return $export_columns;
+});
+
+/**
+ * Add stripe fee data to the Revenue report CSV export item.
+ *
+ * @param array $export_item The export item data.
+ * @param array $item        The original item data.
+ * @return array Modified export item.
+ */
+add_filter('woocommerce_report_revenue_prepare_export_item', function ($export_item, $item) {
+    $export_item['stripe_fee'] = $item['subtotals']['stripe_fee'] ?? 0;
+    return $export_item;
+}, 10, 2);
