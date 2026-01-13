@@ -34,6 +34,8 @@ This will generate a `woocommerce-analytics-stripe-fees.zip` file in the plugin 
 
 The zip file includes only the necessary files for production (built assets, PHP files, etc.) and excludes development files like `node_modules`, source files, and configuration files.
 
+> **Note for developers:** The `plugin-zip` script automatically runs `composer install --no-dev` before zipping to exclude dev dependencies (like PHPUnit) from the autoloader manifests. Dev dependencies are restored after the zip is created, so local development is unaffected.
+
 ## References
 
 * Updated the code after studying a Stackoverflow question: [try to add order item name column in woocommerce Analytics -> Orders report table (and output to csv file)](https://stackoverflow.com/questions/69560032/try-to-add-order-item-name-column-in-woocommerce-analytics-orders-report-tabl)
