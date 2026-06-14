@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Woocommerce Analytics Stripe Fees
- * Description: Adds Stripe fee analytics to WooCommerce Analytics reports
+ * Description: Adds Stripe fee analytics to WooCommerce Analytics reports.
  * Version: 1.0.0
  * Requires PHP: 8.3
  * Requires at least: 6.9
@@ -19,15 +19,18 @@
 
 defined( 'ABSPATH' ) || exit;
 
-if ( ! defined( 'MAIN_PLUGIN_FILE' ) ) {
-	define( 'MAIN_PLUGIN_FILE', __FILE__ );
+if ( ! defined( 'WOOCOMMERCE_ANALYTICS_STRIPE_FEES_FILE' ) ) {
+	define( 'WOOCOMMERCE_ANALYTICS_STRIPE_FEES_FILE', __FILE__ );
+}
+
+if ( ! defined( 'WOOCOMMERCE_ANALYTICS_STRIPE_FEES_VERSION' ) ) {
+	define( 'WOOCOMMERCE_ANALYTICS_STRIPE_FEES_VERSION', '1.0.0' );
 }
 
 require_once plugin_dir_path( __FILE__ ) . '/vendor/autoload_packages.php';
 
 use WoocommerceAnalyticsStripeFees\Admin\Setup;
-
-// phpcs:disable WordPress.Files.FileName
+use WoocommerceAnalyticsStripeFees\StripeFees;
 
 /**
  * WooCommerce fallback notice.
@@ -35,8 +38,19 @@ use WoocommerceAnalyticsStripeFees\Admin\Setup;
  * @since 0.1.0
  */
 function woocommerce_analytics_stripe_fees_missing_wc_notice() {
-	/* translators: %s WC download URL link. */
-	echo '<div class="error"><p><strong>' . sprintf( esc_html__( 'Woocommerce Analytics Stripe Fees requires WooCommerce to be installed and active. You can download %s here.', 'woocommerce_analytics_stripe_fees' ), '<a href="https://woo.com/" target="_blank">WooCommerce</a>' ) . '</strong></p></div>';
+	$woocommerce_link = sprintf(
+		'<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
+		esc_url( 'https://woo.com/' ),
+		esc_html__( 'WooCommerce', 'woocommerce-analytics-stripe-fees' )
+	);
+
+	$message = sprintf(
+		/* translators: %s WooCommerce download URL link. */
+		__( 'Woocommerce Analytics Stripe Fees requires WooCommerce to be installed and active. You can download %s here.', 'woocommerce-analytics-stripe-fees' ),
+		$woocommerce_link
+	);
+
+	printf( '<div class="error"><p><strong>%s</strong></p></div>', wp_kses_post( $message ) );
 }
 
 register_activation_hook( __FILE__, 'woocommerce_analytics_stripe_fees_activate' );
@@ -49,21 +63,27 @@ register_activation_hook( __FILE__, 'woocommerce_analytics_stripe_fees_activate'
 function woocommerce_analytics_stripe_fees_activate() {
 	if ( ! class_exists( 'WooCommerce' ) ) {
 		add_action( 'admin_notices', 'woocommerce_analytics_stripe_fees_missing_wc_notice' );
-		return;
 	}
 }
 
 if ( ! class_exists( 'woocommerce_analytics_stripe_fees' ) ) :
 	/**
-	 * The woocommerce_analytics_stripe_fees class.
+	 * Main plugin class.
 	 */
 	class woocommerce_analytics_stripe_fees {
 		/**
 		 * This class instance.
 		 *
-		 * @var \woocommerce_analytics_stripe_fees single instance of this class.
+		 * @var \woocommerce_analytics_stripe_fees
 		 */
 		private static $instance;
+
+		/**
+		 * Plugin version.
+		 *
+		 * @var string
+		 */
+		public $version = WOOCOMMERCE_ANALYTICS_STRIPE_FEES_VERSION;
 
 		/**
 		 * Constructor.
@@ -78,25 +98,22 @@ if ( ! class_exists( 'woocommerce_analytics_stripe_fees' ) ) :
 		 * Cloning is forbidden.
 		 */
 		public function __clone() {
-			wc_doing_it_wrong( __FUNCTION__, __( 'Cloning is forbidden.', 'woocommerce_analytics_stripe_fees' ), $this->version );
+			wc_doing_it_wrong( __FUNCTION__, __( 'Cloning is forbidden.', 'woocommerce-analytics-stripe-fees' ), $this->version );
 		}
 
 		/**
 		 * Unserializing instances of this class is forbidden.
 		 */
 		public function __wakeup() {
-			wc_doing_it_wrong( __FUNCTION__, __( 'Unserializing instances of this class is forbidden.', 'woocommerce_analytics_stripe_fees' ), $this->version );
+			wc_doing_it_wrong( __FUNCTION__, __( 'Unserializing instances of this class is forbidden.', 'woocommerce-analytics-stripe-fees' ), $this->version );
 		}
 
 		/**
 		 * Gets the main instance.
 		 *
-		 * Ensures only one instance can be loaded.
-		 *
 		 * @return \woocommerce_analytics_stripe_fees
 		 */
 		public static function instance() {
-
 			if ( null === self::$instance ) {
 				self::$instance = new self();
 			}
@@ -114,7 +131,7 @@ add_action( 'plugins_loaded', 'woocommerce_analytics_stripe_fees_init', 10 );
  * @since 0.1.0
  */
 function woocommerce_analytics_stripe_fees_init() {
-	load_plugin_textdomain( 'woocommerce_analytics_stripe_fees', false, plugin_basename( dirname( __FILE__ ) ) . '/languages' );
+	load_plugin_textdomain( 'woocommerce-analytics-stripe-fees', false, plugin_basename( dirname( __FILE__ ) ) . '/languages' );
 
 	if ( ! class_exists( 'WooCommerce' ) ) {
 		add_action( 'admin_notices', 'woocommerce_analytics_stripe_fees_missing_wc_notice' );
@@ -122,167 +139,248 @@ function woocommerce_analytics_stripe_fees_init() {
 	}
 
 	woocommerce_analytics_stripe_fees::instance();
-
 }
 
+add_filter( 'woocommerce_analytics_orders_select_query', 'woocommerce_analytics_stripe_fees_add_order_report_data', 10, 2 );
 
 /**
- * Show the stripe fee of the order in the order analytics table
- * @param $results
- * @param $args
- * @return mixed
- */
-add_filter('woocommerce_analytics_orders_select_query', function ($results, $args) {
-
-    if ($results && isset($results->data) && !empty($results->data)) {
-        foreach ($results->data as $key => $result) {
-            $order = wc_get_order($result['order_id']);
-            $results->data[$key]['stripe_fee'] = $order->get_meta('_stripe_fee', true);
-        }
-    }
-
-    return $results;
-}, 10, 2);
-
-/**
- * Add the stripe fee column to the CSV file
- * @param $export_columns
- * @return mixed
- */
-add_filter('woocommerce_report_orders_export_columns', function ($export_columns) {
-    $export_columns['stripe_fee'] = 'Stripe Fee';
-    return $export_columns;
-});
-
-/**
- * Add the stripe fee data to the CSV file
- * @param $export_item
- * @param $item
- * @return mixed
- */
-add_filter('woocommerce_report_orders_prepare_export_item', function ($export_item, $item) {
-    $export_item['stripe_fee'] = $item['stripe_fee'];
-    return $export_item;
-}, 10, 2);
-
-/**
- * Add stripe fee totals to the Revenue report data.
- * This aggregates stripe fees for each interval (day/week/month/quarter/year).
+ * Add Stripe fee data to the Orders report rows.
  *
- * @param object $results The revenue report results.
+ * @param object $results Orders report results.
  * @param array  $args    Query arguments.
- * @return object Modified results with stripe_fee data.
+ * @return object
  */
-add_filter('woocommerce_analytics_revenue_select_query', function ($results, $args) {
-    // Safety check - ensure we have valid results
-    if (!$results || is_wp_error($results)) {
-        return $results;
-    }
+function woocommerce_analytics_stripe_fees_add_order_report_data( $results, $args ) {
+	if ( ! $results || is_wp_error( $results ) || empty( $results->data ) || ! is_array( $results->data ) ) {
+		return $results;
+	}
 
-    // Check if intervals exist (could be array or property)
-    $intervals = null;
-    if (isset($results->intervals)) {
-        $intervals = &$results->intervals;
-    } elseif (isset($results->data->intervals)) {
-        $intervals = &$results->data->intervals;
-    }
+	foreach ( $results->data as $key => $result ) {
+		$order_id = StripeFees::get_value( $result, 'order_id' );
 
-    if (empty($intervals) || !is_array($intervals)) {
-        return $results;
-    }
+		if ( ! $order_id ) {
+			StripeFees::set_value( $results->data[ $key ], 'stripe_fee', 0.0 );
+			continue;
+		}
 
-    $total_stripe_fees = 0;
+		$order = wc_get_order( $order_id );
+		StripeFees::set_value( $results->data[ $key ], 'stripe_fee', StripeFees::get_order_stripe_fee( $order ) );
+	}
 
-    // Get stripe fees for each interval
-    foreach ($intervals as $key => &$interval) {
-        // Get date range - handle both array and object formats
-        $start_date = is_array($interval) ? ($interval['date_start'] ?? null) : ($interval->date_start ?? null);
-        $end_date = is_array($interval) ? ($interval['date_end'] ?? null) : ($interval->date_end ?? null);
+	return $results;
+}
 
-        if (!$start_date || !$end_date) {
-            continue;
-        }
-
-        // Query orders in this interval and sum their stripe fees
-        // Using WooCommerce CRUD for HPOS compatibility
-        $order_args = array(
-            'limit'        => -1,
-            'status'       => array( 'wc-completed', 'wc-processing', 'wc-on-hold' ),
-            'date_created' => $start_date . '...' . $end_date,
-            'return'       => 'ids',
-        );
-
-        $order_ids = wc_get_orders( $order_args );
-        $fee = 0;
-
-        if ( ! empty( $order_ids ) ) {
-            foreach ( $order_ids as $order_id ) {
-                $order = wc_get_order( $order_id );
-                if ( $order ) {
-                    $stripe_fee = $order->get_meta( '_stripe_fee', true );
-                    if ( $stripe_fee ) {
-                        $fee += (float) $stripe_fee;
-                    }
-                }
-            }
-        }
-
-        $total_stripe_fees += $fee;
-
-        // Handle both array and object subtotals
-        if (is_array($interval)) {
-            if (!isset($intervals[$key]['subtotals'])) {
-                $intervals[$key]['subtotals'] = array();
-            }
-            if (is_array($intervals[$key]['subtotals'])) {
-                $intervals[$key]['subtotals']['stripe_fee'] = $fee;
-            } elseif (is_object($intervals[$key]['subtotals'])) {
-                $intervals[$key]['subtotals']->stripe_fee = $fee;
-            }
-        } elseif (is_object($interval)) {
-            if (!isset($interval->subtotals)) {
-                $interval->subtotals = new stdClass();
-            }
-            if (is_object($interval->subtotals)) {
-                $interval->subtotals->stripe_fee = $fee;
-            } elseif (is_array($interval->subtotals)) {
-                $interval->subtotals['stripe_fee'] = $fee;
-            }
-        }
-    }
-    unset($interval); // Break reference
-
-    // Also add to totals
-    if (isset($results->totals)) {
-        if (is_object($results->totals)) {
-            $results->totals->stripe_fee = $total_stripe_fees;
-        } elseif (is_array($results->totals)) {
-            $results->totals['stripe_fee'] = $total_stripe_fees;
-        }
-    }
-
-    return $results;
-}, 10, 2);
+add_filter( 'woocommerce_report_orders_export_columns', 'woocommerce_analytics_stripe_fees_add_order_export_column' );
 
 /**
- * Add stripe fee column to the Revenue report CSV export.
+ * Add the Stripe fee column to the Orders CSV export.
  *
  * @param array $export_columns Existing export columns.
- * @return array Modified export columns.
+ * @return array
  */
-add_filter('woocommerce_report_revenue_export_columns', function ($export_columns) {
-    $export_columns['stripe_fee'] = __('Stripe Fees', 'woocommerce-analytics-stripe-fees');
-    return $export_columns;
-});
+function woocommerce_analytics_stripe_fees_add_order_export_column( $export_columns ) {
+	$export_columns['stripe_fee'] = __( 'Stripe Fee', 'woocommerce-analytics-stripe-fees' );
+
+	return $export_columns;
+}
+
+add_filter( 'woocommerce_report_orders_prepare_export_item', 'woocommerce_analytics_stripe_fees_prepare_order_export_item', 10, 2 );
 
 /**
- * Add stripe fee data to the Revenue report CSV export item.
+ * Add Stripe fee data to an Orders CSV export item.
  *
  * @param array $export_item The export item data.
  * @param array $item        The original item data.
- * @return array Modified export item.
+ * @return array
  */
-add_filter('woocommerce_report_revenue_prepare_export_item', function ($export_item, $item) {
-    $export_item['stripe_fee'] = $item['subtotals']['stripe_fee'] ?? 0;
-    return $export_item;
-}, 10, 2);
+function woocommerce_analytics_stripe_fees_prepare_order_export_item( $export_item, $item ) {
+	$export_item['stripe_fee'] = StripeFees::normalize_fee( StripeFees::get_value( $item, 'stripe_fee', 0 ) );
+
+	return $export_item;
+}
+
+add_filter( 'woocommerce_analytics_revenue_select_query', 'woocommerce_analytics_stripe_fees_add_revenue_report_data', 10, 2 );
+
+/**
+ * Add Stripe fee totals to the Revenue report data.
+ *
+ * @param object $results Revenue report results.
+ * @param array  $args    Query arguments.
+ * @return object
+ */
+function woocommerce_analytics_stripe_fees_add_revenue_report_data( $results, $args ) {
+	if ( ! $results || is_wp_error( $results ) ) {
+		return $results;
+	}
+
+	if ( isset( $results->intervals ) && is_array( $results->intervals ) ) {
+		$intervals = &$results->intervals;
+	} elseif ( isset( $results->data->intervals ) && is_array( $results->data->intervals ) ) {
+		$intervals = &$results->data->intervals;
+	} else {
+		return $results;
+	}
+
+	if ( empty( $intervals ) ) {
+		return $results;
+	}
+
+	$fees_by_interval = woocommerce_analytics_stripe_fees_get_revenue_fees_by_interval( $intervals, $args );
+	$total_fees       = 0.0;
+
+	foreach ( $intervals as $key => &$interval ) {
+		$fee         = $fees_by_interval[ $key ] ?? 0.0;
+		$total_fees += $fee;
+
+		StripeFees::set_interval_stripe_fee( $interval, $fee );
+	}
+	unset( $interval );
+
+	if ( isset( $results->totals ) ) {
+		StripeFees::set_value( $results->totals, 'stripe_fee', $total_fees );
+	} elseif ( isset( $results->data->totals ) ) {
+		StripeFees::set_value( $results->data->totals, 'stripe_fee', $total_fees );
+	}
+
+	return $results;
+}
+
+/**
+ * Get Stripe fees grouped by Revenue report interval.
+ *
+ * @param array $intervals Revenue report intervals.
+ * @param array $args      Query arguments.
+ * @return array
+ */
+function woocommerce_analytics_stripe_fees_get_revenue_fees_by_interval( array $intervals, array $args ): array {
+	$ranges = array();
+
+	foreach ( $intervals as $key => $interval ) {
+		list( $start_date, $end_date ) = StripeFees::get_interval_dates( $interval );
+
+		if ( ! $start_date || ! $end_date ) {
+			continue;
+		}
+
+		$start_timestamp = strtotime( $start_date );
+		$end_timestamp   = strtotime( $end_date );
+
+		if ( false === $start_timestamp || false === $end_timestamp ) {
+			continue;
+		}
+
+		$ranges[ $key ] = array(
+			'start'      => $start_date,
+			'end'        => $end_date,
+			'start_time' => $start_timestamp,
+			'end_time'   => $end_timestamp,
+			'fee'        => 0.0,
+		);
+	}
+
+	if ( empty( $ranges ) ) {
+		return array();
+	}
+
+	$first_range = reset( $ranges );
+	$last_range  = end( $ranges );
+
+	$order_args = array(
+		'limit'        => -1,
+		'status'       => woocommerce_analytics_stripe_fees_get_order_statuses( $args ),
+		'date_created' => $first_range['start'] . '...' . $last_range['end'],
+		'return'       => 'objects',
+	);
+
+	/**
+	 * Filters the WooCommerce order query used to calculate Revenue report Stripe fees.
+	 *
+	 * @param array $order_args WooCommerce order query arguments.
+	 * @param array $args       Revenue report query arguments.
+	 * @param array $intervals  Revenue report intervals.
+	 */
+	$order_args = apply_filters( 'woocommerce_analytics_stripe_fees_revenue_order_query_args', $order_args, $args, $intervals );
+	$orders     = wc_get_orders( $order_args );
+
+	if ( empty( $orders ) ) {
+		return wp_list_pluck( $ranges, 'fee' );
+	}
+
+	foreach ( $orders as $order ) {
+		if ( ! is_object( $order ) || ! method_exists( $order, 'get_date_created' ) ) {
+			continue;
+		}
+
+		$date_created = $order->get_date_created();
+
+		if ( ! $date_created || ! method_exists( $date_created, 'getTimestamp' ) ) {
+			continue;
+		}
+
+		$order_time = $date_created->getTimestamp();
+		$order_fee  = StripeFees::get_order_stripe_fee( $order );
+
+		if ( 0.0 === $order_fee ) {
+			continue;
+		}
+
+		foreach ( $ranges as &$range ) {
+			if ( $order_time >= $range['start_time'] && $order_time <= $range['end_time'] ) {
+				$range['fee'] += $order_fee;
+				break;
+			}
+		}
+		unset( $range );
+	}
+
+	return wp_list_pluck( $ranges, 'fee' );
+}
+
+/**
+ * Infer order statuses for the Stripe fee order query.
+ *
+ * @param array $args Revenue report query arguments.
+ * @return array
+ */
+function woocommerce_analytics_stripe_fees_get_order_statuses( array $args ): array {
+	foreach ( array( 'status', 'statuses', 'order_status', 'order_statuses', 'status_is' ) as $key ) {
+		if ( empty( $args[ $key ] ) ) {
+			continue;
+		}
+
+		$statuses = is_array( $args[ $key ] ) ? $args[ $key ] : array( $args[ $key ] );
+
+		return array_values( array_filter( array_map( 'sanitize_text_field', $statuses ) ) );
+	}
+
+	return array( 'wc-completed', 'wc-processing', 'wc-on-hold' );
+}
+
+add_filter( 'woocommerce_report_revenue_export_columns', 'woocommerce_analytics_stripe_fees_add_revenue_export_column' );
+
+/**
+ * Add the Stripe fee column to the Revenue CSV export.
+ *
+ * @param array $export_columns Existing export columns.
+ * @return array
+ */
+function woocommerce_analytics_stripe_fees_add_revenue_export_column( $export_columns ) {
+	$export_columns['stripe_fee'] = __( 'Stripe Fees', 'woocommerce-analytics-stripe-fees' );
+
+	return $export_columns;
+}
+
+add_filter( 'woocommerce_report_revenue_prepare_export_item', 'woocommerce_analytics_stripe_fees_prepare_revenue_export_item', 10, 2 );
+
+/**
+ * Add Stripe fee data to a Revenue CSV export item.
+ *
+ * @param array $export_item The export item data.
+ * @param array $item        The original item data.
+ * @return array
+ */
+function woocommerce_analytics_stripe_fees_prepare_revenue_export_item( $export_item, $item ) {
+	$export_item['stripe_fee'] = StripeFees::get_interval_stripe_fee( $item );
+
+	return $export_item;
+}

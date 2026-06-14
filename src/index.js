@@ -1,285 +1,227 @@
 /**
  * External dependencies
  */
+import { addFilter } from '@wordpress/hooks';
+import { __ } from '@wordpress/i18n';
 
-import * as Woo from "@woocommerce/components";
-import { Dropdown } from "@wordpress/components";
-import { Fragment } from "@wordpress/element";
-import { addFilter } from "@wordpress/hooks";
-import { __ } from "@wordpress/i18n";
+const toNumber = ( value ) => {
+	if ( typeof value === 'number' ) {
+		return Number.isFinite( value ) ? value : 0;
+	}
 
-/**
- * Add Stripe Fee column to the Orders report table.
- *
- * @param {Object} reportTableData - Table data object containing headers, rows, and items.
- * @return {Object} Modified table data with Stripe Fee column added.
- */
-const addTableColumn = (reportTableData) => {
-	if ("orders" !== reportTableData.endpoint) {
+	if ( typeof value !== 'string' ) {
+		return 0;
+	}
+
+	const normalized = value.replace( /[^0-9.-]/g, '' );
+	const parsed = Number.parseFloat( normalized );
+
+	return Number.isFinite( parsed ) ? parsed : 0;
+};
+
+const getCurrencyConfig = () => {
+	const settings =
+		typeof wcSettings !== 'undefined' && wcSettings.currency
+			? wcSettings.currency
+			: {};
+
+	return {
+		symbol: settings.symbol || settings.currency_symbol || '$',
+		symbolPosition:
+			settings.symbolPosition || settings.currency_pos || 'left',
+		decimalSeparator:
+			settings.decimalSeparator || settings.decimal_separator || '.',
+		thousandSeparator:
+			settings.thousandSeparator || settings.thousand_separator || ',',
+		precision: Number.parseInt(
+			settings.precision || settings.price_num_decimals || 2,
+			10
+		),
+	};
+};
+
+const addThousandsSeparators = ( value, separator ) =>
+	value.replace( /\B(?=(\d{3})+(?!\d))/g, separator );
+
+const formatCurrency = ( value, emptyValue = '-' ) => {
+	const numericValue = toNumber( value );
+
+	if ( numericValue === 0 ) {
+		return emptyValue;
+	}
+
+	const {
+		symbol,
+		symbolPosition,
+		decimalSeparator,
+		thousandSeparator,
+		precision,
+	} = getCurrencyConfig();
+	const sign = numericValue < 0 ? '-' : '';
+	const fixedValue = Math.abs( numericValue ).toFixed( precision );
+	const [ integerPart, decimalPart ] = fixedValue.split( '.' );
+	const amount = `${ addThousandsSeparators(
+		integerPart,
+		thousandSeparator
+	) }${ precision > 0 ? decimalSeparator + decimalPart : '' }`;
+
+	switch ( symbolPosition ) {
+		case 'right':
+			return `${ sign }${ amount }${ symbol }`;
+		case 'right_space':
+			return `${ sign }${ amount } ${ symbol }`;
+		case 'left_space':
+			return `${ sign }${ symbol } ${ amount }`;
+		case 'left':
+		default:
+			return `${ sign }${ symbol }${ amount }`;
+	}
+};
+
+const hasHeader = ( headers, key ) =>
+	headers.some( ( header ) => header.key === key );
+
+const getHeaderIndex = ( headers, key ) =>
+	headers.findIndex( ( header ) => header.key === key );
+
+const addMoneyColumns = ( reportTableData, config ) => {
+	const { endpoint, baseTotalKey, feeValue } = config;
+
+	if (
+		reportTableData.endpoint !== endpoint ||
+		! Array.isArray( reportTableData.headers ) ||
+		! Array.isArray( reportTableData.rows )
+	) {
 		return reportTableData;
 	}
 
-	// Find the net_total header index to calculate net after fees
-	const netTotalIndex = reportTableData.headers.findIndex(
-		(h) => h.key === "net_total"
-	);
-
-	// Add the Stripe Fee and Net After Fees headers
-	const newHeaders = [
-		...reportTableData.headers,
-		{
-			label: __("Stripe Fee", "woocommerce-analytics-stripe-fees"),
-			key: "stripe_fee",
-			required: false,
-			isSortable: false,
-			isNumeric: true,
-		},
-		{
-			label: __("Net After Fees", "woocommerce-analytics-stripe-fees"),
-			key: "net_after_fees",
-			required: false,
-			isSortable: false,
-			isNumeric: true,
-		},
-	];
-
-	// Add the Stripe Fee and Net After Fees data to each row
-	const newRows = reportTableData.rows.map((row, index) => {
-		const item = reportTableData.items.data[index];
-		const stripeFee = item?.stripe_fee ? parseFloat(item.stripe_fee) : 0;
-		const netTotal =
-			netTotalIndex >= 0 && row[netTotalIndex]
-				? parseFloat(row[netTotalIndex].value) || 0
-				: 0;
-		const netAfterFees = netTotal - stripeFee;
-
-		const newRow = [
-			...row,
-			{
-				display: stripeFee ? `$${stripeFee.toFixed(2)}` : "-",
-				value: stripeFee,
-			},
-			{
-				display: netAfterFees ? `$${netAfterFees.toFixed(2)}` : "-",
-				value: netAfterFees,
-			},
-		];
-		return newRow;
-	});
-
-	reportTableData.headers = newHeaders;
-	reportTableData.rows = newRows;
-
-	return reportTableData;
-};
-
-addFilter(
-	"woocommerce_admin_report_table",
-	"woocommerce-analytics-stripe-fees",
-	addTableColumn,
-);
-
-/**
- * Add Stripe Fee chart option to the Revenue report.
- *
- * @param {Array} charts - Array of chart configurations.
- * @return {Array} Modified charts array with Stripe Fee chart added.
- */
-const addStripeFeeChart = (charts) => {
-	return [
-		...charts,
-		{
-			key: "stripe_fee",
-			label: __("Stripe Fees", "woocommerce-analytics-stripe-fees"),
-			order: "desc",
-			orderby: "stripe_fee",
-			type: "currency",
-			isReverseTrend: true, // Lower fees are better
-		},
-	];
-};
-
-addFilter(
-	"woocommerce_admin_revenue_report_charts",
-	"woocommerce-analytics-stripe-fees",
-	addStripeFeeChart,
-);
-
-/**
- * Add Stripe Fee column to the Revenue report table.
- *
- * @param {Object} reportTableData - Table data object.
- * @return {Object} Modified table data with Stripe Fee and Net After Fees columns.
- */
-const addRevenueTableColumn = (reportTableData) => {
-	if ("revenue" !== reportTableData.endpoint) {
+	if (
+		hasHeader( reportTableData.headers, 'stripe_fee' ) ||
+		hasHeader( reportTableData.headers, 'net_after_fees' )
+	) {
 		return reportTableData;
 	}
 
-	// Find the net_revenue header index to calculate net after fees
-	const netRevenueIndex = reportTableData.headers.findIndex(
-		(h) => h.key === "net_revenue"
+	const baseTotalIndex = getHeaderIndex(
+		reportTableData.headers,
+		baseTotalKey
 	);
+	const items = reportTableData.items?.data || [];
 
-	// Add the Stripe Fee and Net After Fees headers
-	const newHeaders = [
-		...reportTableData.headers,
-		{
-			label: __("Stripe Fees", "woocommerce-analytics-stripe-fees"),
-			key: "stripe_fee",
-			required: false,
-			isSortable: true,
-			isNumeric: true,
-		},
-		{
-			label: __("Net After Fees", "woocommerce-analytics-stripe-fees"),
-			key: "net_after_fees",
-			required: false,
-			isSortable: false,
-			isNumeric: true,
-		},
-	];
-
-	// Add the Stripe Fee and Net After Fees data to each row
-	const newRows = reportTableData.rows.map((row, index) => {
-		const item = reportTableData.items.data[index];
-		const stripeFee = item?.subtotals?.stripe_fee ?? 0;
-		const netRevenue =
-			netRevenueIndex >= 0 && row[netRevenueIndex]
-				? parseFloat(row[netRevenueIndex].value) || 0
-				: 0;
-		const netAfterFees = netRevenue - stripeFee;
-
-		const newRow = [
-			...row,
+	return {
+		...reportTableData,
+		headers: [
+			...reportTableData.headers,
 			{
-				display: stripeFee ? `$${stripeFee.toFixed(2)}` : "-",
-				value: stripeFee,
+				label: __( 'Stripe Fees', 'woocommerce-analytics-stripe-fees' ),
+				key: 'stripe_fee',
+				required: false,
+				isSortable: false,
+				isNumeric: true,
 			},
 			{
-				display: netAfterFees ? `$${netAfterFees.toFixed(2)}` : "-",
-				value: netAfterFees,
+				label: __(
+					'Net After Fees',
+					'woocommerce-analytics-stripe-fees'
+				),
+				key: 'net_after_fees',
+				required: false,
+				isSortable: false,
+				isNumeric: true,
 			},
-		];
-		return newRow;
-	});
+		],
+		rows: reportTableData.rows.map( ( row, index ) => {
+			const item = items[ index ] || {};
+			const stripeFee = toNumber( feeValue( item ) );
+			const baseTotal =
+				baseTotalIndex >= 0
+					? toNumber( row[ baseTotalIndex ]?.value )
+					: 0;
+			const netAfterFees = baseTotal - stripeFee;
 
-	reportTableData.headers = newHeaders;
-	reportTableData.rows = newRows;
-
-	return reportTableData;
-};
-
-addFilter(
-	"woocommerce_admin_report_table",
-	"woocommerce-analytics-stripe-fees-revenue",
-	addRevenueTableColumn,
-);
-
-const MyExamplePage = () => (
-	<Fragment>
-		<Woo.Section component="article">
-			<Woo.SectionHeader
-				title={__("Search", "woocommerce-analytics-stripe-fees")}
-			/>
-			<Woo.Search
-				type="products"
-				placeholder="Search for something"
-				selected={[]}
-				onChange={(items) => setInlineSelect(items)}
-				inlineTags
-			/>
-		</Woo.Section>
-
-		<Woo.Section component="article">
-			<Woo.SectionHeader
-				title={__("Dropdown", "woocommerce-analytics-stripe-fees")}
-			/>
-			<Dropdown
-				renderToggle={({ isOpen, onToggle }) => (
-					<Woo.DropdownButton
-						onClick={onToggle}
-						isOpen={isOpen}
-						labels={["Dropdown"]}
-					/>
-				)}
-				renderContent={() => <p>Dropdown content here</p>}
-			/>
-		</Woo.Section>
-
-		<Woo.Section component="article">
-			<Woo.SectionHeader
-				title={__("Pill shaped container", "woocommerce-analytics-stripe-fees")}
-			/>
-			<Woo.Pill className={"pill"}>
-				{__("Pill Shape Container", "woocommerce-analytics-stripe-fees")}
-			</Woo.Pill>
-		</Woo.Section>
-
-		<Woo.Section component="article">
-			<Woo.SectionHeader
-				title={__("Spinner", "woocommerce-analytics-stripe-fees")}
-			/>
-			<Woo.H>I am a spinner!</Woo.H>
-			<Woo.Spinner />
-		</Woo.Section>
-
-		<Woo.Section component="article">
-			<Woo.SectionHeader
-				title={__("Datepicker", "woocommerce-analytics-stripe-fees")}
-			/>
-			<Woo.DatePicker
-				text={__("I am a datepicker!", "woocommerce-analytics-stripe-fees")}
-				dateFormat={"MM/DD/YYYY"}
-			/>
-		</Woo.Section>
-	</Fragment>
-);
-
-/**
- * Add Stripe Fees chart option to the Analytics Dashboard.
- *
- * @param {Array} charts - Array of dashboard chart configurations.
- * @return {Array} Modified charts array with Stripe Fees option.
- */
-const addDashboardStripeFeeChart = (charts) => {
-	return [
-		...charts,
-		{
-			key: "stripe_fee",
-			label: __("Stripe Fees", "woocommerce-analytics-stripe-fees"),
-			order: "desc",
-			orderby: "stripe_fee",
-			type: "currency",
-			endpoint: "revenue",
-			isReverseTrend: true, // Lower fees are better
-		},
-	];
-};
-
-addFilter(
-	"woocommerce_admin_dashboard_charts_filter",
-	"woocommerce-analytics-stripe-fees-dashboard",
-	addDashboardStripeFeeChart,
-);
-
-addFilter(
-	"woocommerce_admin_pages_list",
-	"analytics/woocommerce-analytics-stripe-fee",
-	(pages) => {
-		return [
-			...pages,
-			{
-				container: MyExamplePage,
-				path: "/analytics/woocommerce-analytics-stripe-fee",
-				breadcrumbs: [
-					__("Analytics", "woocommerce-analytics-stripe-fees"),
-					__("Stripe Fees", "woocommerce-analytics-stripe-fees"),
-				],
-				navArgs: {
-					id: "woocommerce-analytics-stripe-fee",
+			return [
+				...row,
+				{
+					display: formatCurrency( stripeFee ),
+					value: stripeFee,
 				},
-			},
-		];
-	},
+				{
+					display: formatCurrency( netAfterFees ),
+					value: netAfterFees,
+				},
+			];
+		} ),
+	};
+};
+
+const addOrdersTableColumns = ( reportTableData ) =>
+	addMoneyColumns( reportTableData, {
+		endpoint: 'orders',
+		baseTotalKey: 'net_total',
+		feeValue: ( item ) => item?.stripe_fee,
+	} );
+
+addFilter(
+	'woocommerce_admin_report_table',
+	'woocommerce-analytics-stripe-fees-orders',
+	addOrdersTableColumns
+);
+
+const addRevenueTableColumns = ( reportTableData ) =>
+	addMoneyColumns( reportTableData, {
+		endpoint: 'revenue',
+		baseTotalKey: 'net_revenue',
+		feeValue: ( item ) => item?.subtotals?.stripe_fee,
+	} );
+
+addFilter(
+	'woocommerce_admin_report_table',
+	'woocommerce-analytics-stripe-fees-revenue',
+	addRevenueTableColumns
+);
+
+const stripeFeeChart = {
+	key: 'stripe_fee',
+	label: __( 'Stripe Fees', 'woocommerce-analytics-stripe-fees' ),
+	order: 'desc',
+	orderby: 'stripe_fee',
+	type: 'currency',
+	isReverseTrend: true,
+};
+
+const hasStripeFeeChart = ( charts ) =>
+	charts.some( ( chart ) => chart.key === 'stripe_fee' );
+
+const addStripeFeeChart = ( charts ) => {
+	if ( hasStripeFeeChart( charts ) ) {
+		return charts;
+	}
+
+	return [ ...charts, stripeFeeChart ];
+};
+
+addFilter(
+	'woocommerce_admin_revenue_report_charts',
+	'woocommerce-analytics-stripe-fees-revenue-chart',
+	addStripeFeeChart
+);
+
+const addDashboardStripeFeeChart = ( charts ) => {
+	if ( hasStripeFeeChart( charts ) ) {
+		return charts;
+	}
+
+	return [
+		...charts,
+		{
+			...stripeFeeChart,
+			endpoint: 'revenue',
+		},
+	];
+};
+
+addFilter(
+	'woocommerce_admin_dashboard_charts_filter',
+	'woocommerce-analytics-stripe-fees-dashboard-chart',
+	addDashboardStripeFeeChart
 );

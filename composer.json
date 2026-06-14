@@ -1,6 +1,7 @@
 {
 	"name": "extension/woocommerce-analytics-stripe-fees",
 	"description": "WooCommerce Analytics Stripe Fees plugin",
+	"license": "GPL-3.0-or-later",
 	"autoload": {
 		"psr-4": {
 			"WoocommerceAnalyticsStripeFees\\": "includes/"

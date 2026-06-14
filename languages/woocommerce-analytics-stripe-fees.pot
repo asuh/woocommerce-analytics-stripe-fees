@@ -1,0 +1,59 @@
+# Copyright (C) 2026 Asuh
+# This file is distributed under the GNU General Public License v3.0.
+msgid ""
+msgstr ""
+"Project-Id-Version: Woocommerce Analytics Stripe Fees 1.0.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/woocommerce-analytics-stripe-fees\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-06-14T00:00:00+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: Manual\n"
+"X-Domain: woocommerce-analytics-stripe-fees\n"
+
+#. Plugin Name of the plugin
+msgid "Woocommerce Analytics Stripe Fees"
+msgstr ""
+
+#. Description of the plugin
+msgid "Adds Stripe fee analytics to WooCommerce Analytics reports."
+msgstr ""
+
+#. Author of the plugin
+msgid "Asuh"
+msgstr ""
+
+#: woocommerce-analytics-stripe-fees.php:40
+msgid "WooCommerce"
+msgstr ""
+
+#. translators: %s WooCommerce download URL link.
+#: woocommerce-analytics-stripe-fees.php:46
+msgid "Woocommerce Analytics Stripe Fees requires WooCommerce to be installed and active. You can download %s here."
+msgstr ""
+
+#: woocommerce-analytics-stripe-fees.php:96
+msgid "Cloning is forbidden."
+msgstr ""
+
+#: woocommerce-analytics-stripe-fees.php:103
+msgid "Unserializing instances of this class is forbidden."
+msgstr ""
+
+#: woocommerce-analytics-stripe-fees.php:181
+#: src/index.js:76
+msgid "Stripe Fee"
+msgstr ""
+
+#: woocommerce-analytics-stripe-fees.php:371
+#: src/index.js:76
+#: src/index.js:140
+msgid "Stripe Fees"
+msgstr ""
+
+#: src/index.js:83
+msgid "Net After Fees"
+msgstr ""
