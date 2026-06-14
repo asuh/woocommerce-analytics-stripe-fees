@@ -18,6 +18,7 @@
 		"vendor/jetpack-autoloader",
 		"woocommerce-analytics-stripe-fees.php",
 		"README.md",
+		"CHANGELOG.md",
 		"LICENSE"
 	],
 	"scripts": {

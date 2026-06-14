@@ -78,6 +78,10 @@ Revenue report fees are calculated from WooCommerce orders across the report dat
 
 Currency display in the admin report columns uses WooCommerce's `wcSettings.currency` values when available.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
+
 ## References
 
 -   [Adding columns to analytics reports and CSV downloads](https://developer.woocommerce.com/2021/02/04/adding-columns-to-analytics-reports-and-csv-downloads/)
