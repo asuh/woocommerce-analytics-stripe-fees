@@ -1,43 +1,89 @@
 # Woocommerce Analytics Stripe Fees
 
-A WooCommmerce Extension inspired by [Create Woo Extension](https://github.com/woocommerce/woocommerce/blob/trunk/packages/js/create-woo-extension/README.md).
+Adds Stripe fee data to WooCommerce Analytics so fees are visible in report tables, charts, dashboard cards, and CSV exports.
 
-This was created to help with quarterly and annual taxes.
+This plugin reads the `_stripe_fee` order meta value written by WooCommerce Stripe integrations and adds:
+
+-   `Stripe Fee` and `Net After Fees` columns to Analytics > Orders.
+-   `Stripe Fees` and `Net After Fees` columns to Analytics > Revenue.
+-   A `Stripe Fees` chart option for the Revenue report and Analytics dashboard.
+-   Stripe fee values in Orders and Revenue CSV exports.
 
 ![Stripe Fees column in Analytics > Orders](stripe-fees.jpg)
 
-## Getting Started
+## Requirements
 
-### Prerequisites
+-   PHP 8.3 or newer.
+-   WordPress 6.9 or newer.
+-   WooCommerce 10.4 or newer.
+-   Node.js 20.11.1 or newer for development builds.
+-   Composer for PHP dependencies.
 
--   [NPM](https://www.npmjs.com/)
--   [Composer](https://getcomposer.org/download/)
--   [wp-env](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-env/)
+## Development
 
-### Installation and Build
+Install dependencies:
 
-```
+```bash
 npm install
+```
+
+Build the admin script:
+
+```bash
 npm run build
+```
+
+Start the WordPress development environment:
+
+```bash
 npm start
 ```
 
-### Building for Production
+The `postinstall` script runs `composer install`, so PHP dev dependencies are restored automatically after `npm install`.
 
-To create a distributable zip file for production use:
+## Quality Checks
 
+Run the same checks used for release validation:
+
+```bash
+php -l woocommerce-analytics-stripe-fees.php
+php -l includes/Admin/Setup.php
+php -l includes/StripeFees.php
+composer validate --strict
+composer audit
+./vendor/bin/phpunit --colors=never
+npm run lint:js
+npm run lint:css
+npm run build
+npm audit --audit-level=moderate
 ```
+
+## Building a Release Zip
+
+Create an installable plugin zip:
+
+```bash
 npm run plugin-zip
 ```
 
-This will generate a `woocommerce-analytics-stripe-fees.zip` file in the plugin directory, ready for installation on any WordPress site via **Plugins > Add New > Upload Plugin**.
+This generates `woocommerce-analytics-stripe-fees.zip` for upload through WordPress admin at Plugins > Add New > Upload Plugin.
 
-The zip file includes only the necessary files for production (built assets, PHP files, etc.) and excludes development files like `node_modules`, source files, and configuration files.
+The zip includes built assets, plugin PHP files, translations, the production Composer autoloader, and this README. Development-only files such as `src`, `tests`, `node_modules`, and PHPUnit dependencies are excluded.
 
-> **Note for developers:** The `plugin-zip` script automatically runs `composer install --no-dev` before zipping to exclude dev dependencies (like PHPUnit) from the autoloader manifests. Dev dependencies are restored after the zip is created, so local development is unaffected.
+The release script runs `composer install --no-dev --optimize-autoloader` before packaging, then restores development dependencies after the zip is created.
+
+## Notes
+
+Revenue report fees are calculated from WooCommerce orders across the report date range and grouped into the report intervals. The order query can be customized with the `woocommerce_analytics_stripe_fees_revenue_order_query_args` filter.
+
+Currency display in the admin report columns uses WooCommerce's `wcSettings.currency` values when available.
 
 ## References
 
-* Updated the code after studying a Stackoverflow question: [try to add order item name column in woocommerce Analytics -> Orders report table (and output to csv file)](https://stackoverflow.com/questions/69560032/try-to-add-order-item-name-column-in-woocommerce-analytics-orders-report-tabl)
-* Also available on an official blog post [Adding columns to analytics reports and CSV downloads](https://developer.woocommerce.com/2021/02/04/adding-columns-to-analytics-reports-and-csv-downloads/)
-* Example of [how to extend WooCommerce Analytics](https://developer.woocommerce.com/docs/how-to-extend-woocommerce-analytics-reports/)
+-   [Adding columns to analytics reports and CSV downloads](https://developer.woocommerce.com/2021/02/04/adding-columns-to-analytics-reports-and-csv-downloads/)
+-   [How to extend WooCommerce Analytics reports](https://developer.woocommerce.com/docs/how-to-extend-woocommerce-analytics-reports/)
+-   [Create Woo Extension](https://github.com/woocommerce/woocommerce/blob/trunk/packages/js/create-woo-extension/README.md)
+
+## License
+
+Woocommerce Analytics Stripe Fees is licensed under the GNU General Public License v3.0 or later. See [LICENSE](LICENSE).

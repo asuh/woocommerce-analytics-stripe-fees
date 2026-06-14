@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Woocommerce Analytics Stripe Fees
  * Description: Adds Stripe fee analytics to WooCommerce Analytics reports.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Requires PHP: 8.3
  * Requires at least: 6.9
  * WC requires at least: 10.4
@@ -24,7 +24,7 @@ if ( ! defined( 'WOOCOMMERCE_ANALYTICS_STRIPE_FEES_FILE' ) ) {
 }
 
 if ( ! defined( 'WOOCOMMERCE_ANALYTICS_STRIPE_FEES_VERSION' ) ) {
-	define( 'WOOCOMMERCE_ANALYTICS_STRIPE_FEES_VERSION', '1.0.0' );
+	define( 'WOOCOMMERCE_ANALYTICS_STRIPE_FEES_VERSION', '1.1.0' );
 }
 
 require_once plugin_dir_path( __FILE__ ) . '/vendor/autoload_packages.php';
